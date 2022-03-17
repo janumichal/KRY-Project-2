@@ -1,128 +1,78 @@
 #include <iostream>
 #include <getopt.h>
 #include <gmpxx.h>
+#include <bitset>
 
 using namespace std;
 
 #define ARGUMENT_ERROR 1
 #define PUBLIC_EXPONENT 3
 
-unsigned int bits_size(mpz_t num){
-    return mpz_sizeinbase(num, 2);
+unsigned int bits_size(mpz_class num){
+    return mpz_sizeinbase(num.get_mpz_t(), 2);
 }
 
-void gen_in_range(mpz_t res, int from, mpz_t to){
+mpz_class gen_in_range(int from, mpz_class to){
     unsigned long int counter = 0;
+    mpz_class result;
+    gmp_randclass rand(gmp_randinit_mt);
+
     while(true){
-        unsigned long seed;
-        gmp_randstate_t state;
-        gmp_randinit_mt(state);
-        seed = time(nullptr)+counter;
-        gmp_randseed_ui(state, seed);
-        mpz_urandomm(res, state, to);
-        gmp_randclear(state);
-        if(mpz_cmp_ui(res, from) > 0){
+        rand.seed(time(nullptr)+counter);
+        result = rand.get_z_range(to);
+        if(result >= from){
             break;
         }
         counter++;
     }
-    return;
+    return result;
 }
 
-bool miller_test(mpz_t d, mpz_t n){
-    mpz_t a, x, n_1, n_2;
-    mpz_init(a);
-    mpz_init(x);
-    mpz_init(n_1);
-	mpz_init(n_2);
+bool miller_test(mpz_class d, mpz_class n){
+    mpz_class a, x;
     
-    // Pick a random number in [2..n-2]
-    // Corner cases make sure that n > 4
-    // int a = 2 + rand() % (n - 4);
-	mpz_sub_ui(n_2, n, 2);
-    gen_in_range(a, 1, n_2);
-	mpz_clear(n_2);
+    a = gen_in_range(1, n-1);
+    mpz_powm(x.get_mpz_t(), a.get_mpz_t(), d.get_mpz_t(), n.get_mpz_t());
  
-    // Compute a^d % n
-    // int x = power(a, d, n);
-    mpz_powm(x, a, d, n);
- 
-    // if (x == 1  || x == n-1)
-    mpz_sub_ui(n_1, n, 1);
-    if(mpz_cmp_ui(x, 1) == 0 || mpz_cmp(x, n_1) == 0){
-        mpz_clear(n_1);
-        mpz_clear(a);
-        mpz_clear(x);
+    if(x == 1 || x == n-1){
         return true;
     }
     
-    // Keep squaring x while one of the following doesn't
-    // happen
-    // (i)   d does not reach n-1
-    // (ii)  (x^2) % n is not 1
-    // (iii) (x^2) % n is not n-1
-    // while (d != n-1)
-    while(mpz_cmp(d, n_1) != 0){
-
-    //     x = (x * x) % n;
-        mpz_mul(x, x, x);
-        mpz_mod(x, x, n);
-    //     d *= 2;
-        mpz_mul_ui(d, d, 2);
-    //     if (x == 1)      return false;
-        if(mpz_cmp_ui(x, 1) == 0){
-            mpz_clear(n_1);
-            mpz_clear(a);
-            mpz_clear(x);
+    while(d != n-1){
+        x = (x * x) % n;
+        d *= 2;
+        if(x == 1){
             return false;
         }
-    //     if (x == n-1)    return true;
-        if(mpz_cmp(x, n_1) == 0){
-            mpz_clear(n_1);
-            mpz_clear(a);
-            mpz_clear(x);
+        if(x == n-1){
             return true;
         }
     }
-
-    mpz_clear(n_1);
-    mpz_clear(a);
-    mpz_clear(x);
- 
-    // Return composite
     return false;
 }
 
-bool is_prime(mpz_t n, unsigned int k){
-    mpz_t d, d_mod;
-    mpz_init(d);
-    mpz_init(d_mod);
+bool is_prime(mpz_class n, unsigned int k){
+    mpz_class d, d_mod;
 
     // Corner cases
     // if (n <= 1 || n == 4)  return false;
-    if(mpz_cmp_ui(n, 1) <= 0 || mpz_cmp_ui(n, 4) == 0){
-        mpz_clear(d);
-        mpz_clear(d_mod);
+    if(n <= 1 || n == 4){
         return false;
     }
 
     // if (n <= 3) return true;
-    if(mpz_cmp_ui(n, 3) <= 0){
-        mpz_clear(d);
-        mpz_clear(d_mod);
+    if(n <= 3){
         return true;
     }
  
     // Find r such that n = 2^d * r + 1 for some r >= 1
     // int d = n - 1;
-    mpz_sub_ui(d, n, 1);
+    d = n - 1;
 
     // while (d % 2 == 0)
-    mpz_mod_ui(d_mod, d, 2);
-    while(mpz_cmp_ui(d_mod, 0) == 0){
+    while(d % 2 == 0){
     //     d /= 2;
-        mpz_div_ui(d, d, 2);
-		mpz_mod_ui(d_mod, d, 2);
+        d /= 2;
     }
 
  
@@ -130,135 +80,96 @@ bool is_prime(mpz_t n, unsigned int k){
     for (unsigned int i = 0; i < k; i++){
         //  if (!miillerTest(d, n))
         if(!miller_test(d, n)){
-            mpz_clear(d);
-            mpz_clear(d_mod);   
             return false;
 		}
     }
-    
-    mpz_clear(d);
-    mpz_clear(d_mod);
     return true;
 }
 
-void gen_prime(mpz_t result, int bits){
-    unsigned long int counter = 0;
-    unsigned long seed;
-    gmp_randstate_t state;
-    gmp_randinit_mt(state);
-	while(true){
-		seed = time(nullptr)+counter;
-		gmp_randseed_ui(state, seed);
-		mpz_urandomb(result, state, bits);
-		mpz_setbit(result, bits-1);
+mpz_class gen_prime(int bits){
+    unsigned int counter = 0;
+    mpz_class result;
+    gmp_randclass rand(gmp_randinit_mt);
+
+    while(true){
+        rand.seed(time(nullptr) + counter);
+        result = rand.get_z_bits(bits);
 		if(is_prime(result, 1)){
 			break;
 		}
 		counter++;
 	}
-    gmp_randclear(state);
-    return;
+    return result;
 }
 
-void gen_pq(mpz_t p, mpz_t q, int bits){
+void gen_pq(mpz_class &p, mpz_class &q, unsigned int bits){
     bool fst = true;
     int p_bits = bits/2;
     int q_bits;
     while(true){
         if(fst){
-            gen_prime(p, p_bits);
+            p = gen_prime(p_bits);
             fst = false;
             q_bits = bits - bits_size(p);
         }else{
-            gen_prime(q, q_bits);
-            if(mpz_cmp(q, p) != 0){
+            q = gen_prime(q_bits);
+            if(p != q){
                 break;
             }
         }
     }
 }
 
-void gcd(mpz_t res, mpz_t a, mpz_t b){
+mpz_class gcd(mpz_class a, mpz_class b){
     // Everything divides 0
-    if (mpz_cmp_ui(a, 0) == 0){
-        mpz_set(res, b);
-        return;
+    if (a == 0){
+        return b;
     }
-    if (mpz_cmp_ui(b, 0) == 0){
-        mpz_set(res, a);
-        return;
+    if (b == 0){
+        return a;
     }
   
-    if (mpz_cmp(a, b) == 0){
-        mpz_set(res, a);
-        return;
+    if (a == b){
+        return a;
     }
 
-    if (mpz_cmp(a, b) > 0){
-        mpz_t a_b;
-        mpz_init(a_b);
-        mpz_sub(a_b, a, b);
-        gcd(res, a_b, b);
-        mpz_clear(a_b);
-        return;
+    if (a > b){
+        return gcd(a-b, b);
     }
-    mpz_t b_a;
-    mpz_init(b_a);
-    mpz_sub(b_a, a, b);
-    gcd(res, b_a, b);
-    mpz_clear(b_a);
-    return;
+    return gcd(a, b-a);
+}
+
+mpz_class m_inverse(){
+    
 }
 
 void genereate_keys(int bits){
-    cout << "Bits: " << bits << endl;
-    mpz_t p, q, n, phi_n, q_1, p_1, e;
-    mpz_init(n);
-    mpz_init(p);
-    mpz_init(q);
-    mpz_init(phi_n);
-    mpz_init(p_1);
-    mpz_init(q_1);
-    mpz_init(e);
-
+    mpz_class p, q, n, phi_n, e;
 
     // Generate p and q
     gen_pq(p, q, bits);
     // n = p * q
-    mpz_mul(n, p, q);
-    // (p-1)
-    mpz_sub_ui(p_1, p, 1);
-    // (q-1)
-    mpz_sub_ui(q_1, q, 1);
+    n = p * q;
     // phi(n) = (q-1)*(p-1)
-    mpz_mul(phi_n, p_1, q_1);
+    phi_n = (q-1)*(p-1);
     // choose e that 1 < e < phi(n)
-    gen_in_range(e, 1, phi_n);
+    do{
+        e = gen_in_range(1, phi_n);
+    }while(gcd(e, phi_n) != 1);
 
 
-    gmp_printf("P: %Zd (%d) ", p, bits_size(p));
-    // mpz_out_str(stdout, 2, p); cout << endl;
-    gmp_printf("Q: %Zd (%d) ", q, bits_size(q));
-    // mpz_out_str(stdout, 2, q); cout << endl;
-    gmp_printf("N: %Zd (%d) \n", n, bits_size(n));
-    gmp_printf("(p-1): %Zd\n", p_1);
-    gmp_printf("(q-1): %Zd\n", q_1);
-    gmp_printf("phi(n): %Zd\n", phi_n);
-    gmp_printf("E: \t%Zd\n", e);
+    
+
+    cout << "P: " << p << " (" << bits_size(p) << ") " << endl;;
+    // mpz_out_str(stdout, 2, p.get_mpz_t()); cout << endl;
+    cout << "Q: " << q << " (" << bits_size(q) << ") " << endl;;
+    // mpz_out_str(stdout, 2, q.get_mpz_t()); cout << endl;
+    cout << "N: " << n << " (" << bits_size(n) << ") " << endl;
+    cout << "Phi(n): " << phi_n << endl;
+    cout << "E: " << e << endl;
 
     // TODO add is_prime function
     // TODO add gcd
-
-
-    mpz_clear(e);
-    mpz_clear(phi_n);
-    mpz_clear(p_1);
-    mpz_clear(q_1);
-    mpz_clear(p);
-    mpz_clear(q);
-    mpz_clear(n);
-
-
 }
 
 void encrypt(){
