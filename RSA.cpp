@@ -1,7 +1,7 @@
 #include <iostream>
 #include <getopt.h>
 #include <gmpxx.h>
-#include <bitset>
+#include <bits/stdc++.h>
 
 using namespace std;
 
@@ -86,14 +86,14 @@ bool is_prime(mpz_class n, unsigned int k){
     return true;
 }
 
-mpz_class gen_prime(int bits){
-    unsigned int counter = 0;
+mpz_class gen_prime(int bits, unsigned int &counter){
     mpz_class result;
     gmp_randclass rand(gmp_randinit_mt);
 
     while(true){
         rand.seed(time(nullptr) + counter);
         result = rand.get_z_bits(bits);
+        mpz_setbit(result.get_mpz_t(), bits-1);
 		if(is_prime(result, 1)){
 			break;
 		}
@@ -103,19 +103,13 @@ mpz_class gen_prime(int bits){
 }
 
 void gen_pq(mpz_class &p, mpz_class &q, unsigned int bits){
-    bool fst = true;
-    int p_bits = bits/2;
-    int q_bits;
+    int half_bits = bits/2;
+    unsigned int counter = 0;
     while(true){
-        if(fst){
-            p = gen_prime(p_bits);
-            fst = false;
-            q_bits = bits - bits_size(p);
-        }else{
-            q = gen_prime(q_bits);
-            if(p != q){
-                break;
-            }
+        p = gen_prime(half_bits, counter);
+        q = gen_prime(half_bits, counter);
+        if(p != q && bits_size(p*q) == bits){
+            break;
         }
     }
 }
@@ -139,12 +133,41 @@ mpz_class gcd(mpz_class a, mpz_class b){
     return gcd(a, b-a);
 }
 
-mpz_class m_inverse(){
+mpz_class m_inverse(mpz_class a, mpz_class m){
+    mpz_class m0 = m;
+    mpz_class y("0",10);
+    mpz_class x("1",10);
+
     
+    if (m == 1){
+        return 0; 
+    }
+  
+    while (a > 1) 
+    { 
+        // q is quotient 
+        mpz_class q = a / m; 
+        mpz_class t = m; 
+  
+        // m is remainder now, process same as 
+        // Euclid's algo 
+        m = a % m, a = t; 
+        t = y; 
+  
+        // Update y and x 
+        y = x - q * y; 
+        x = t; 
+    } 
+  
+    // Make x positive 
+    if (x < 0) {
+        x += m0; 
+    }
+    return x; 
 }
 
 void genereate_keys(int bits){
-    mpz_class p, q, n, phi_n, e;
+    mpz_class p, q, n, phi_n, e, d;
 
     // Generate p and q
     gen_pq(p, q, bits);
@@ -157,27 +180,28 @@ void genereate_keys(int bits){
         e = gen_in_range(1, phi_n);
     }while(gcd(e, phi_n) != 1);
 
+    // calc D = inv(e, phi(n))
+    d = m_inverse(e, phi_n);
 
+    // cout << "P: " << p << " (" << bits_size(p) << ") " << endl;;
+    // cout << "Q: " << q << " (" << bits_size(q) << ") " << endl;;
+    // cout << "N: " << n << " (" << bits_size(n) << ") " << endl;
+    // cout << "Phi(n): " << phi_n << endl;
+    // cout << "E: " << e << endl;
+    // cout << "D: " << d << endl;
+
+    cout << hex << "0x" << p << " 0x" << q << " 0x" << n << " 0x" << e << " 0x" << d << endl;
+}
+
+void encrypt_decrypt(string e, string n, string m){
+    mpz_class ei(e);
+    mpz_class ni(n);
+    mpz_class mi(m);
     
 
-    cout << "P: " << p << " (" << bits_size(p) << ") " << endl;;
-    // mpz_out_str(stdout, 2, p.get_mpz_t()); cout << endl;
-    cout << "Q: " << q << " (" << bits_size(q) << ") " << endl;;
-    // mpz_out_str(stdout, 2, q.get_mpz_t()); cout << endl;
-    cout << "N: " << n << " (" << bits_size(n) << ") " << endl;
-    cout << "Phi(n): " << phi_n << endl;
-    cout << "E: " << e << endl;
-
-    // TODO add is_prime function
-    // TODO add gcd
-}
-
-void encrypt(){
-    cout << "Encrypting msg" << endl;
-}
-
-void decrypt(){
-    cout << "Decrypting msg" << endl;
+    mpz_class res;
+    mpz_powm(res.get_mpz_t(), mi.get_mpz_t(), ei.get_mpz_t(), ni.get_mpz_t());
+    cout << hex << "0x" << res << endl;
 }
 
 void factorization(){
@@ -188,10 +212,10 @@ void printHelp(){
     cout << "kry [options]" << endl <<
     "Options:" << endl <<
     "-h                     Print this help message" << endl <<
-    "-g B                   Generates keys" << endl <<
-    "-e E N M               Encrypts message" << endl <<
-    "-d D N C               Decrypts message" << endl <<
-    "-b N                   Cracks RSA" << endl << endl <<
+    "-g B                   Generates keys (P Q N E D)" << endl <<
+    "-e E N M               Encrypts message (C)" << endl <<
+    "-d D N C               Decrypts message (M)" << endl <<
+    "-b N                   Cracks RSA (P)" << endl << endl <<
     "Parameters:" << endl <<
     "B                      Modulus size in bits" << endl <<
     "E                      Public exponent" << endl <<
@@ -203,38 +227,46 @@ void printHelp(){
 
 
 int main(int argc, char** argv){
-    static struct option opts[] = {
-        {"g", required_argument, nullptr, 'g'},
-        {"e", required_argument, nullptr, 'e'},
-        {"d", required_argument, nullptr, 'd'},
-        {"b", required_argument, nullptr, 'b'},
-        {"h", no_argument, nullptr, 'h'},
-        {0, 0, nullptr, 0}
-    };
-
-    int opt, idx = 0;
-    while((opt = getopt_long_only(argc, argv, "", opts, &idx)) != EOF){
-        switch(opt){
-            case 'g':
-                genereate_keys(stoi(optarg));
-                break;
-            case 'e':
-                cout << "E " << optarg << endl;
-                break;
-            case 'd':
-                cout << "D " << optarg << endl;
-                break;
-            case 'b':
-                cout << "B " << optarg << endl;
-                break;
-            case 'h':
-                printHelp();
-                break;
-            default:
-                cout << "Unsupported argument!" << endl;
-                exit(ARGUMENT_ERROR);
-
-        }
+    if(argc == 1 || argv[1][0] != '-'){
+        cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
+        exit(ARGUMENT_ERROR);
     }
+    string option = argv[1];
+
+    switch(option[1]){
+        case 'g':
+            if(argc < 3){
+                cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
+                exit(ARGUMENT_ERROR);
+            }
+            genereate_keys(stoi(argv[2]));
+            break;
+        case 'e':
+            if(argc < 5){
+                cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
+                exit(ARGUMENT_ERROR);
+            }
+            encrypt_decrypt(argv[2], argv[3], argv[4]);
+            break;
+        case 'd':
+            if(argc < 5){
+                cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
+                exit(ARGUMENT_ERROR);
+            }
+            encrypt_decrypt(argv[2], argv[3], argv[4]);
+            break;
+        case 'b':
+            if(argc < 3){
+                cerr << "Wrong program parameters. Use \"./kry -h\"";
+                exit(ARGUMENT_ERROR);
+            }
+            break;
+        case 'h':
+            printHelp();
+            break;
+        default:
+            cerr << "Wrong program parameters. Use \"./kry -h\"";
+            exit(ARGUMENT_ERROR);
+        }
     return 0;
 }
