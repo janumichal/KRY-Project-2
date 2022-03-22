@@ -21,6 +21,7 @@ mpz_class gen_in_range(int from, mpz_class to){
         rand.seed(time(nullptr)+counter);
         result = rand.get_z_range(to);
         if(result >= from){
+            counter++;
             break;
         }
         counter++;
@@ -51,34 +52,26 @@ bool miller_test(mpz_class d, mpz_class n){
     return false;
 }
 
-bool is_prime(mpz_class n, unsigned int k){
+bool is_prime(mpz_class n, unsigned int k, int bits){
     mpz_class d, d_mod;
 
-    // Corner cases
-    // if (n <= 1 || n == 4)  return false;
-    if(n <= 1 || n == 4){
-        return false;
+    if(bits <= 3){
+        if(n <= 1 || n == 4){
+            return false;
+        }
+
+        if(n <= 3){
+            return true;
+        }
     }
 
-    // if (n <= 3) return true;
-    if(n <= 3){
-        return true;
-    }
- 
-    // Find r such that n = 2^d * r + 1 for some r >= 1
-    // int d = n - 1;
     d = n - 1;
 
-    // while (d % 2 == 0)
     while(d % 2 == 0){
-    //     d /= 2;
         d /= 2;
     }
-
  
-    // Iterate given nber of 'k' times
     for (unsigned int i = 0; i < k; i++){
-        //  if (!miillerTest(d, n))
         if(!miller_test(d, n)){
             return false;
 		}
@@ -94,7 +87,8 @@ mpz_class gen_prime(int bits, unsigned int &counter){
         rand.seed(time(nullptr) + counter);
         result = rand.get_z_bits(bits);
         mpz_setbit(result.get_mpz_t(), bits-1);
-		if(is_prime(result, 1)){
+		if(is_prime(result, 1, bits)){
+            counter++;
 			break;
 		}
 		counter++;
@@ -115,22 +109,27 @@ void gen_pq(mpz_class &p, mpz_class &q, unsigned int bits){
 }
 
 mpz_class gcd(mpz_class a, mpz_class b){
-    // Everything divides 0
-    if (a == 0){
-        return b;
-    }
-    if (b == 0){
+    if(b == 0){
         return a;
     }
+    a %= b;
+    return gcd(b, a);
+    
+    // if (a == 0){
+    //     return b;
+    // }
+    // if (b == 0){
+    //     return a;
+    // }
   
-    if (a == b){
-        return a;
-    }
+    // if (a == b){
+    //     return a;
+    // }
 
-    if (a > b){
-        return gcd(a-b, b);
-    }
-    return gcd(a, b-a);
+    // if (a > b){
+    //     return gcd(a-b, b);
+    // }
+    // return gcd(a, b-a);
 }
 
 mpz_class m_inverse(mpz_class a, mpz_class m){
