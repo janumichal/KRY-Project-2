@@ -7,83 +7,98 @@ using namespace std;
 
 #define ARGUMENT_ERROR 1
 
-mpz_class gen_in_range(int from, mpz_class to){
-    mpz_class result;
-    gmp_randclass rand(gmp_randinit_mt);
+class RSA{
+private:
+    mpz_class p, q, n, phi_n, e, d;
+    unsigned int seed = time(nullptr);
+    gmp_randclass rand = gmp_randclass(gmp_randinit_mt);
 
-    rand.seed(time(nullptr));
-    result = from + rand.get_z_range(to - from);
-    return result;
+    mpz_class gen_prime(int bits);
+    bool is_prime(mpz_class n_p, unsigned int k_p, int bits);
+    bool miller_test(mpz_class d_p, mpz_class n_p);
+    mpz_class gcd(mpz_class a, mpz_class b);
+    mpz_class m_inverse(mpz_class a, mpz_class m);
+
+public:
+    RSA();
+    ~RSA();
+    void genereate_keys(unsigned int bits);
+    void encrypt_decrypt(string e, string n, string m);
+    void factorization();
+    void printHelp();
+};
+
+RSA::RSA(){
 }
 
-bool miller_test(mpz_class d, mpz_class n){
+RSA::~RSA(){
+}
+
+bool RSA::miller_test(mpz_class d_p, mpz_class n_p){
     mpz_class a, x;
     
-    a = gen_in_range(2, n-2);
-    mpz_powm(x.get_mpz_t(), a.get_mpz_t(), d.get_mpz_t(), n.get_mpz_t());
+    // [2, n-2]
+    rand.seed(seed++);
+    a = 2 + rand.get_z_range(n-4);
+    mpz_powm(x.get_mpz_t(), a.get_mpz_t(), d_p.get_mpz_t(), n_p.get_mpz_t());
  
-    if(x == 1 || x == n-1){
+    if(x == 1 || x == n_p-1){
         return true;
     }
     
-    while(d != n-1){
-        x = (x * x) % n;
-        d *= 2;
+    while(d_p != n_p-1){
+        x = (x * x) % n_p;
+        d_p *= 2;
         if(x == 1){
             return false;
         }
-        if(x == n-1){
+        if(x == n_p-1){
             return true;
         }
     }
     return false;
 }
 
-bool is_prime(mpz_class n, unsigned int k, int bits){
-    mpz_class d, d_mod;
+bool RSA::is_prime(mpz_class n_p, unsigned int k_p, int bits){
+    mpz_class d_p;
 
     if(bits <= 3){
-        if(n <= 1 || n == 4){
+        if(n_p <= 1 || n_p == 4){
             return false;
         }
 
-        if(n <= 3){
+        if(n_p <= 3){
             return true;
         }
     }
 
-    d = n - 1;
+    d_p = n_p - 1;
 
-    while(d % 2 == 0){
-        d /= 2;
+    while(d_p % 2 == 0){
+        d_p /= 2;
     }
  
-    for (unsigned int i = 0; i < k; i++){
-        if(!miller_test(d, n)){
+    for (unsigned int i = 0; i < k_p; i++){
+        if(!miller_test(d_p, n_p)){
             return false;
 		}
     }
     return true;
 }
 
-mpz_class gen_prime(int bits, unsigned int &counter){
+mpz_class RSA::gen_prime(int bits){
     mpz_class result;
-    gmp_randclass rand(gmp_randinit_mt);
+    // gmp_randclass rand(gmp_randinit_mt);
 
-    while(true){
-        rand.seed(time(nullptr) + counter);
+    do{
+        rand.seed(seed++);
         result = rand.get_z_bits(bits);
         mpz_setbit(result.get_mpz_t(), bits-1);
-		if(is_prime(result, 1, bits)){
-            counter++;
-			break;
-		}
-		counter++;
-	}
+    }while(!is_prime(result, 1, bits));
     return result;
 }
 
-mpz_class gcd(mpz_class a, mpz_class b){
+mpz_class RSA::gcd(mpz_class a, mpz_class b){
     if(b == 0){
         return a;
     }
@@ -91,7 +106,7 @@ mpz_class gcd(mpz_class a, mpz_class b){
     return gcd(b, a);
 }
 
-mpz_class m_inverse(mpz_class a, mpz_class m){
+mpz_class RSA::m_inverse(mpz_class a, mpz_class m){
     mpz_class m0 = m;
     mpz_class y("0",10);
     mpz_class x("1",10);
@@ -103,13 +118,13 @@ mpz_class m_inverse(mpz_class a, mpz_class m){
   
     while (a > 1) 
     { 
-        mpz_class q = a / m; 
+        mpz_class q_i = a / m; 
         mpz_class t = m; 
   
         m = a % m, a = t; 
         t = y; 
   
-        y = x - q * y; 
+        y = x - q_i * y; 
         x = t; 
     } 
   
@@ -119,16 +134,11 @@ mpz_class m_inverse(mpz_class a, mpz_class m){
     return x; 
 }
 
-void genereate_keys(unsigned int bits){
-    mpz_class p, q, n, phi_n, e, d;
-
-    // gen_pq(p, q, n, bits);
+void RSA::genereate_keys(unsigned int bits){
     int half_bits = bits/2;
-    unsigned int counter = 0;
     while(true){
-        p = gen_prime(half_bits, counter);
-        counter++;
-        q = gen_prime(half_bits, counter);
+        p = gen_prime(half_bits);
+        q = gen_prime(half_bits);
         if(p != q){
             n = p*q;
             if(mpz_sizeinbase(n.get_mpz_t(), 2) == bits){
@@ -138,31 +148,40 @@ void genereate_keys(unsigned int bits){
     }
 
     phi_n = (q-1)*(p-1);
+
     do{
-        e = gen_in_range(2, phi_n-1);
+        rand.seed(seed++);
+        e = 2 + rand.get_z_range(phi_n-3);
     }while(gcd(e, phi_n) != 1);
 
     d = m_inverse(e, phi_n);
 
+    // cout << "P: " << p << " (" << mpz_sizeinbase(p.get_mpz_t(), 2) << ") " << endl;;
+    // cout << "Q: " << q << " (" << mpz_sizeinbase(q.get_mpz_t(), 2) << ") " << endl;;
+    // cout << "N: " << n << " (" << mpz_sizeinbase(n.get_mpz_t(), 2) << ") " << endl;
+    // cout << "Phi(n): " << phi_n << endl;
+    // cout << "E: " << e << endl;
+    // cout << "D: " << d << endl;
+    
+
     cout << hex << "0x" << p << " 0x" << q << " 0x" << n << " 0x" << e << " 0x" << d << endl;
 }
 
-void encrypt_decrypt(string e, string n, string m){
-    mpz_class ei(e);
-    mpz_class ni(n);
-    mpz_class mi(m);
-    
+void RSA::encrypt_decrypt(string es, string ns, string ms){
+    mpz_class ei(es);
+    mpz_class ni(ns);
+    mpz_class mi(ms);
 
     mpz_class res;
     mpz_powm(res.get_mpz_t(), mi.get_mpz_t(), ei.get_mpz_t(), ni.get_mpz_t());
     cout << hex << "0x" << res << endl;
 }
 
-void factorization(){
-    cout << "Cracking the private key" << endl;
+void RSA::factorization(){
+    cout << "Factorization was not implemented." << endl;
 }
 
-void printHelp(){
+void RSA::printHelp(){
     cout << "kry [options]" << endl <<
     "Options:" << endl <<
     "-h                     Print this help message" << endl <<
@@ -179,7 +198,6 @@ void printHelp(){
     "C                      Encrypted message" << endl;    
 }
 
-
 int main(int argc, char** argv){
     if(argc == 1 || argv[1][0] != '-'){
         cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
@@ -187,37 +205,39 @@ int main(int argc, char** argv){
     }
     string option = argv[1];
 
+    RSA rsa = RSA();
+
     switch(option[1]){
         case 'g':
             if(argc < 3){
                 cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
                 exit(ARGUMENT_ERROR);
             }
-            genereate_keys(stoi(argv[2]));
+            rsa.genereate_keys(stoi(argv[2]));
             break;
         case 'e':
             if(argc < 5){
                 cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
                 exit(ARGUMENT_ERROR);
             }
-            encrypt_decrypt(argv[2], argv[3], argv[4]);
+            rsa.encrypt_decrypt(argv[2], argv[3], argv[4]);
             break;
         case 'd':
             if(argc < 5){
                 cerr << "Wrong program parameters. Use \"./kry -h\"" << endl;
                 exit(ARGUMENT_ERROR);
             }
-            encrypt_decrypt(argv[2], argv[3], argv[4]);
+            rsa.encrypt_decrypt(argv[2], argv[3], argv[4]);
             break;
         case 'b':
             if(argc < 3){
                 cerr << "Wrong program parameters. Use \"./kry -h\"";
                 exit(ARGUMENT_ERROR);
             }
-            cout << "Factorization was not implemented." << endl;
+            rsa.factorization();
             break;
         case 'h':
-            printHelp();
+            rsa.printHelp();
             break;
         default:
             cerr << "Wrong program parameters. Use \"./kry -h\"";
