@@ -12,26 +12,18 @@ unsigned int bits_size(mpz_class num){
 }
 
 mpz_class gen_in_range(int from, mpz_class to){
-    unsigned long int counter = 0;
     mpz_class result;
     gmp_randclass rand(gmp_randinit_mt);
 
-    while(true){
-        rand.seed(time(nullptr)+counter);
-        result = rand.get_z_range(to);
-        if(result >= from){
-            counter++;
-            break;
-        }
-        counter++;
-    }
+    rand.seed(time(nullptr));
+    result = from + rand.get_z_range(to - from);
     return result;
 }
 
 bool miller_test(mpz_class d, mpz_class n){
     mpz_class a, x;
     
-    a = gen_in_range(1, n-1);
+    a = gen_in_range(2, n-2);
     mpz_powm(x.get_mpz_t(), a.get_mpz_t(), d.get_mpz_t(), n.get_mpz_t());
  
     if(x == 1 || x == n-1){
@@ -100,6 +92,7 @@ void gen_pq(mpz_class &p, mpz_class &q, unsigned int bits){
     unsigned int counter = 0;
     while(true){
         p = gen_prime(half_bits, counter);
+        counter++;
         q = gen_prime(half_bits, counter);
         if(p != q && bits_size(p*q) == bits){
             break;
@@ -150,7 +143,7 @@ void genereate_keys(int bits){
     n = p * q;
     phi_n = (q-1)*(p-1);
     do{
-        e = gen_in_range(1, phi_n);
+        e = gen_in_range(2, phi_n-1);
     }while(gcd(e, phi_n) != 1);
 
     d = m_inverse(e, phi_n);
