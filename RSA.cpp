@@ -7,10 +7,6 @@ using namespace std;
 
 #define ARGUMENT_ERROR 1
 
-unsigned int bits_size(mpz_class num){
-    return mpz_sizeinbase(num.get_mpz_t(), 2);
-}
-
 mpz_class gen_in_range(int from, mpz_class to){
     mpz_class result;
     gmp_randclass rand(gmp_randinit_mt);
@@ -87,19 +83,6 @@ mpz_class gen_prime(int bits, unsigned int &counter){
     return result;
 }
 
-void gen_pq(mpz_class &p, mpz_class &q, unsigned int bits){
-    int half_bits = bits/2;
-    unsigned int counter = 0;
-    while(true){
-        p = gen_prime(half_bits, counter);
-        counter++;
-        q = gen_prime(half_bits, counter);
-        if(p != q && bits_size(p*q) == bits){
-            break;
-        }
-    }
-}
-
 mpz_class gcd(mpz_class a, mpz_class b){
     if(b == 0){
         return a;
@@ -136,11 +119,24 @@ mpz_class m_inverse(mpz_class a, mpz_class m){
     return x; 
 }
 
-void genereate_keys(int bits){
+void genereate_keys(unsigned int bits){
     mpz_class p, q, n, phi_n, e, d;
 
-    gen_pq(p, q, bits);
-    n = p * q;
+    // gen_pq(p, q, n, bits);
+    int half_bits = bits/2;
+    unsigned int counter = 0;
+    while(true){
+        p = gen_prime(half_bits, counter);
+        counter++;
+        q = gen_prime(half_bits, counter);
+        if(p != q){
+            n = p*q;
+            if(mpz_sizeinbase(n.get_mpz_t(), 2) == bits){
+                break;
+            }
+        }
+    }
+
     phi_n = (q-1)*(p-1);
     do{
         e = gen_in_range(2, phi_n-1);
