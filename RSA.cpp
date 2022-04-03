@@ -225,7 +225,7 @@ int main(int argc, char** argv){
                 cerr << "Wrong program parameters. Use \"./kry -h\"";
                 exit(ARGUMENT_ERROR);
             }
-            cout << "Factorization was not implemented."
+            cout << "Factorization was not implemented." << endl;
             break;
         case 'h':
             printHelp();
