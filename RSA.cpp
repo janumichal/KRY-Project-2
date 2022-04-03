@@ -6,7 +6,6 @@
 using namespace std;
 
 #define ARGUMENT_ERROR 1
-#define PUBLIC_EXPONENT 3
 
 unsigned int bits_size(mpz_class num){
     return mpz_sizeinbase(num.get_mpz_t(), 2);
@@ -114,22 +113,6 @@ mpz_class gcd(mpz_class a, mpz_class b){
     }
     a %= b;
     return gcd(b, a);
-    
-    // if (a == 0){
-    //     return b;
-    // }
-    // if (b == 0){
-    //     return a;
-    // }
-  
-    // if (a == b){
-    //     return a;
-    // }
-
-    // if (a > b){
-    //     return gcd(a-b, b);
-    // }
-    // return gcd(a, b-a);
 }
 
 mpz_class m_inverse(mpz_class a, mpz_class m){
@@ -144,21 +127,16 @@ mpz_class m_inverse(mpz_class a, mpz_class m){
   
     while (a > 1) 
     { 
-        // q is quotient 
         mpz_class q = a / m; 
         mpz_class t = m; 
   
-        // m is remainder now, process same as 
-        // Euclid's algo 
         m = a % m, a = t; 
         t = y; 
   
-        // Update y and x 
         y = x - q * y; 
         x = t; 
     } 
   
-    // Make x positive 
     if (x < 0) {
         x += m0; 
     }
@@ -168,26 +146,14 @@ mpz_class m_inverse(mpz_class a, mpz_class m){
 void genereate_keys(int bits){
     mpz_class p, q, n, phi_n, e, d;
 
-    // Generate p and q
     gen_pq(p, q, bits);
-    // n = p * q
     n = p * q;
-    // phi(n) = (q-1)*(p-1)
     phi_n = (q-1)*(p-1);
-    // choose e that 1 < e < phi(n)
     do{
         e = gen_in_range(1, phi_n);
     }while(gcd(e, phi_n) != 1);
 
-    // calc D = inv(e, phi(n))
     d = m_inverse(e, phi_n);
-
-    // cout << "P: " << p << " (" << bits_size(p) << ") " << endl;;
-    // cout << "Q: " << q << " (" << bits_size(q) << ") " << endl;;
-    // cout << "N: " << n << " (" << bits_size(n) << ") " << endl;
-    // cout << "Phi(n): " << phi_n << endl;
-    // cout << "E: " << e << endl;
-    // cout << "D: " << d << endl;
 
     cout << hex << "0x" << p << " 0x" << q << " 0x" << n << " 0x" << e << " 0x" << d << endl;
 }
@@ -259,6 +225,7 @@ int main(int argc, char** argv){
                 cerr << "Wrong program parameters. Use \"./kry -h\"";
                 exit(ARGUMENT_ERROR);
             }
+            cout << "Factorization was not implemented."
             break;
         case 'h':
             printHelp();
