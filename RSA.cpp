@@ -10,7 +10,7 @@ using namespace std;
 class RSA{
 private:
     mpz_class p, q, n, phi_n, e, d;
-    unsigned int seed = time(nullptr);
+    unsigned int seed = time(nullptr)/2;
     gmp_randclass rand = gmp_randclass(gmp_randinit_mt);
 
     mpz_class gen_prime(int bits);
