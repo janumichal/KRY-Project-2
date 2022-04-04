@@ -10,15 +10,14 @@ using namespace std;
 class RSA{
 private:
     mpz_class p, q, n, phi_n, e, d;
-    unsigned int seed = time(nullptr)/2;
+    unsigned int seed = time(nullptr);
     gmp_randclass rand = gmp_randclass(gmp_randinit_mt);
 
     mpz_class gen_prime(int bits);
-    bool is_prime(mpz_class n_p, unsigned int k_p, int bits);
+    bool is_prime(mpz_class n_p, int bits);
     bool miller_test(mpz_class d_p, mpz_class n_p);
     mpz_class gcd(mpz_class a, mpz_class b);
     mpz_class m_inverse(mpz_class a, mpz_class m);
-
 public:
     RSA();
     ~RSA();
@@ -59,7 +58,7 @@ bool RSA::miller_test(mpz_class d_p, mpz_class n_p){
     return false;
 }
 
-bool RSA::is_prime(mpz_class n_p, unsigned int k_p, int bits){
+bool RSA::is_prime(mpz_class n_p, int bits){
     mpz_class d_p;
 
     if(bits <= 3){
@@ -78,23 +77,20 @@ bool RSA::is_prime(mpz_class n_p, unsigned int k_p, int bits){
         d_p /= 2;
     }
  
-    for (unsigned int i = 0; i < k_p; i++){
-        if(!miller_test(d_p, n_p)){
-            return false;
-		}
+    if(!miller_test(d_p, n_p)){
+        return false;
     }
     return true;
 }
 
 mpz_class RSA::gen_prime(int bits){
     mpz_class result;
-    // gmp_randclass rand(gmp_randinit_mt);
-
-    do{
-        rand.seed(seed++);
-        result = rand.get_z_bits(bits);
-        mpz_setbit(result.get_mpz_t(), bits-1);
-    }while(!is_prime(result, 1, bits));
+    rand.seed(seed++);
+    result = rand.get_z_bits(bits);
+    mpz_setbit(result.get_mpz_t(), bits-1);
+    while(!is_prime(result, bits)){
+        result++;
+    }
     return result;
 }
 
