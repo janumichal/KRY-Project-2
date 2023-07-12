@@ -5,7 +5,7 @@ XLOGINXX=xjanum03
 OBJ=RSA.cpp
 BIN=kry
 
-CXXFLAGS:=-Wall -Wextra -Wsuggest-override -Wnull-dereference -Wshadow -Wold-style-cast -pedantic -lgmp -std=c++2a
+CXXFLAGS:=-Wall -Wextra -Wsuggest-override -Wnull-dereference -Wshadow -Wold-style-cast -pedantic -lgmpxx -lgmp -std=c++2a
 
 LINK.o = $(LINK.cpp)
 
